@@ -1,0 +1,7 @@
+include ':app'
+include ':mdblib'
+include ':sampleapp'
+include ':mqtt-lib'
+include ':mdb-lib'
+include ':rabbahlog-sample'
+rootProject.name = "MdbSlaveApp"

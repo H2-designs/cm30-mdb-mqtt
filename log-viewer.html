@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CM30 MDB Live Log</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: #0b0e12;
+    color: #d7e0ea;
+    font-family: 'Cascadia Code', 'Consolas', 'Menlo', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 10px 16px;
+    background: #12161c;
+    border-bottom: 1px solid #232a33;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  header h1 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+    color: #9fb3c8;
+    letter-spacing: 0.03em;
+  }
+  #status {
+    font-size: 12px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #status .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  #status.connecting { background: #3a3320; color: #e8c766; }
+  #status.connecting .dot { animation: pulse 1.1s ease-in-out infinite; }
+  #status.linking { background: #3a2f1a; color: #f0a94e; }
+  #status.linking .dot { animation: pulse 0.7s ease-in-out infinite; }
+  #status.connected {
+    background: #1d3a26;
+    color: #6fe89a;
+    animation: pop 0.35s ease-out;
+  }
+  #status.device-offline { background: #3a1d1d; color: #e86f6f; }
+  #status.device-offline .dot { animation: pulse 1.6s ease-in-out infinite; }
+  #status.disconnected { background: #3a1d1d; color: #e86f6f; }
+
+  #subheader {
+    padding: 6px 16px;
+    background: #0f1318;
+    border-bottom: 1px solid #1b2028;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .checkbox-label {
+    font-size: 12px;
+    color: #9fb3c8;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #vmcStatus {
+    font-size: 12px;
+    padding: 3px 10px 3px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #vmcStatus .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  #vmcStatus.vmc-nodata { background: #1c2129; color: #56657a; }
+  #vmcStatus.vmc-inactive { background: #3a1d1d; color: #e86f6f; }
+  #vmcStatus.vmc-inactive .dot { animation: pulse 1.6s ease-in-out infinite; }
+  #vmcStatus.vmc-disabled { background: #1a2a3a; color: #6fb3e8; }
+  #vmcStatus.vmc-enabled { background: #2a2a3a; color: #a78be8; }
+  #vmcStatus.vmc-vend { background: #1d3a26; color: #6fe89a; animation: pop 0.35s ease-out; }
+  #vmcStatus.vmc-stale-overlay { background: #3a2f1a; color: #f0a94e; }
+  #vmcStatus.vmc-stale-overlay .dot { animation: pulse 1.1s ease-in-out infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.35; transform: scale(0.8); }
+  }
+  @keyframes pop {
+    0% { transform: scale(0.85); opacity: 0.4; }
+    60% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  #count { font-size: 12px; color: #607185; margin-left: auto; }
+  .divider { width: 1px; align-self: stretch; background: #232a33; }
+  button {
+    background: #1c2129;
+    color: #b8c4d1;
+    border: 1px solid #2c3440;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+  }
+  button:hover { background: #232a33; }
+  #openBtn { border-color: #2a5a3a; color: #6fe89a; }
+  #closeBtn { border-color: #5a2a2a; color: #e86f6f; }
+  #beginSessionBtn { border-color: #3a2a5a; color: #a78be8; }
+  #vendBtn { border-color: #2a3f5a; color: #6fb3e8; }
+  #cancelVendBtn { border-color: #5a4a2a; color: #e8c766; }
+  #clearBtn { font-weight: 400; }
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: stretch;
+  }
+  .btn-group select { padding: 3px 6px; }
+  select {
+    background: #1c2129;
+    color: #b8c4d1;
+    border: 1px solid #2c3440;
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .label {
+    font-size: 11px;
+    color: #56657a;
+  }
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .line { display: flex; gap: 10px; }
+  .ts { color: #4c5a6b; flex-shrink: 0; user-select: none; }
+  .rx { color: #6fb3e8; }
+  .info { color: #e8c766; font-style: italic; }
+  .cmd { color: #b088e8; }
+  .err { color: #e86f6f; }
+  .msg { flex: 1; }
+
+  #configBtn { border-color: #4a2a5a; color: #c789e8; }
+
+  #configOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  #configOverlay.open { display: flex; }
+  #configPanel {
+    background: #12161c;
+    border: 1px solid #2c3440;
+    border-radius: 10px;
+    width: min(760px, 92vw);
+    max-height: 86vh;
+    display: flex;
+    flex-direction: column;
+  }
+  #configPanel header {
+    background: transparent;
+    border-bottom: 1px solid #232a33;
+  }
+  #configPanel header h1 { color: #c789e8; }
+  #configBody {
+    padding: 14px 18px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .config-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #1b2028;
+  }
+  .config-row-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .config-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #d7e0ea;
+  }
+  .config-len {
+    font-size: 11px;
+    color: #56657a;
+  }
+  .config-controls-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .config-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .config-name {
+    cursor: help;
+  }
+  .config-byte-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .config-byte {
+    width: 28px;
+    text-align: center;
+    background: #1c2129;
+    color: #d7e0ea;
+    border: 1px solid #2c3440;
+    border-radius: 5px;
+    padding: 5px 0;
+    font-size: 13px;
+    font-family: inherit;
+    text-transform: uppercase;
+    cursor: help;
+  }
+  .config-byte.dirty { border-color: #e8c766; }
+  .config-byte.fixed {
+    background: #0f1318;
+    color: #56657a;
+    cursor: not-allowed;
+    border-style: dashed;
+  }
+  .peripheral-fields {
+    display: flex;
+    gap: 6px;
+  }
+  .peripheral-text {
+    background: #1c2129;
+    color: #d7e0ea;
+    border: 1px solid #2c3440;
+    border-radius: 6px;
+    padding: 5px 6px;
+    font-size: 13px;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    text-align: center;
+    cursor: help;
+    /* Actual width (in ch) is set inline per-field in buildPeripheralIdFields(), sized to that
+       field's real maxlength — otherwise every input defaults to the browser's ~20-character-wide
+       box, which dwarfed a 3-char Manufacturer field next to a 12-char Serial Number field. */
+  }
+  .peripheral-text.dirty { border-color: #e8c766; }
+  .free-hex {
+    text-align: left;
+    font-family: 'Consolas', 'SF Mono', monospace;
+  }
+  .free-hex-count {
+    font-size: 11px;
+    color: #8ea0b5;
+    align-self: center;
+    white-space: nowrap;
+  }
+  .config-status {
+    font-size: 11px;
+    min-height: 14px;
+  }
+  .config-status.ok { color: #6fe89a; }
+  .config-status.err { color: #e86f6f; }
+  .config-status.pending { color: #e8c766; }
+  .level-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-left: 8px;
+  }
+  .level-badge.active { color: #6fe89a; background: rgba(111, 232, 154, 0.12); }
+  .level-badge.inactive { color: #6a7684; background: rgba(106, 118, 132, 0.12); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>CM30 MDB — LIVE LOG</h1>
+    <span id="status" class="connecting"><span class="dot"></span><span id="statusText">connecting to MQTT…</span></span>
+    <span class="divider"></span>
+    <span class="label">device:</span>
+    <select id="deviceSelect" title="Every machine running this app announces its own device ID — pick which one to watch and control.">
+      <option value="" disabled selected>(none seen yet)</option>
+    </select>
+    <span class="divider"></span>
+    <button id="openBtn">Open</button>
+    <button id="closeBtn">Close</button>
+    <span class="divider"></span>
+    <button id="beginSessionBtn">Begin Session</button>
+    <span class="label">mode:</span>
+    <select id="sessionModeSelect" title="Auto: sessions begin by themselves. Manual: only this button starts one.">
+      <option value="auto">Auto</option>
+      <option value="manual">Manual</option>
+    </select>
+    <span class="divider"></span>
+    <span class="label">MDB level:</span>
+    <select id="mdbLevelSelect" title="Level 1: 3-byte Begin Session, no REVALUE, no EXPANSION. Level 2: 11-byte Begin Session, adds REVALUE and EXPANSION REQUEST ID / Peripheral ID. Level 3: adds EXPANSION ENABLE OPTIONS and extra Peripheral ID bytes (all declared unsupported). Affects the feature level this device reports in Reader Config Data too.">
+      <option value="1">Level 1</option>
+      <option value="2">Level 2</option>
+      <option value="3">Level 3</option>
+    </select>
+    <span class="divider"></span>
+    <button id="vendBtn">Vend Approve</button>
+    <div class="btn-group">
+      <button id="cancelVendBtn">Vend Cancel</button>
+      <select id="cancelSendSelect" title="Which response Vend Cancel sends">
+        <option value="sessionCancel">Session Cancel Request</option>
+        <option value="vendDenied">Vend Denied</option>
+      </select>
+    </div>
+    <span class="divider"></span>
+    <span class="label">VMC-initiated cancel replies with:</span>
+    <select id="cancelModeSelect">
+      <option value="sessionCancel">Session Cancel Request</option>
+      <option value="vendDenied">Vend Denied</option>
+    </select>
+    <span class="divider"></span>
+    <button id="configBtn">Config</button>
+    <button id="clearBtn">Clear</button>
+    <span id="count">0 lines</span>
+  </header>
+  <div id="subheader">
+    <span id="vmcStatus" class="vmc-nodata"><span class="dot"></span><span id="vmcStatusText">no VMC data yet</span></span>
+    <span class="divider"></span>
+    <label class="checkbox-label"><input type="checkbox" id="pollVisibilityCheck"> Show POLL/ACK traffic</label>
+    <label class="checkbox-label"><input type="checkbox" id="unhandledVisibilityCheck"> Show unhandled commands</label>
+  </div>
+  <div id="log"></div>
+
+  <div id="configOverlay">
+    <div id="configPanel">
+      <header>
+        <h1>MDB COMMAND CONFIG</h1>
+        <span class="label">Edit the raw hex payload sent for each response — length is fixed per command, except Begin Session where the byte count is editable too (1–35 bytes).</span>
+        <button id="configRefreshBtn" style="margin-left:auto">Refresh from device</button>
+        <button id="configCloseBtn">Close</button>
+      </header>
+      <div id="configBody"></div>
+    </div>
+  </div>
+
+<script>
+  // Must match MqttBridge.kt on the Android side exactly. Every device publishes/subscribes
+  // under its own <deviceId> segment (its ANDROID_ID, shown on its screen and in its version
+  // label) — this page subscribes to the wildcard so it can see every machine that's online,
+  // then scopes all UI/commands to whichever one is selected in the device dropdown.
+  const TOPIC_PREFIX = 'cm30-mdb/hamdan-rabbah/';
+  const LOG_TOPIC_FILTER = TOPIC_PREFIX + '+/liveLog';
+  // Broker override without editing this file: open the page once as
+  //   log-viewer.html?broker=ws://YOUR-SERVER:9001&user=rabbah&pass=SECRET
+  // and the values persist in localStorage for every later visit (query wins over stored).
+  // NOTE: a browser can only speak MQTT over WebSockets — the broker needs a ws(s) listener
+  // (mosquitto: "listener 9001" + "protocol websockets"), not the plain TCP 1883 port.
+  const qs = new URLSearchParams(location.search);
+  function setting(key, def) {
+    const v = qs.get(key);
+    if (v !== null) { localStorage.setItem('cm30-' + key, v); return v; }
+    return localStorage.getItem('cm30-' + key) || def;
+  }
+  const BROKER_URL = setting('broker', 'wss://broker.hivemq.com:8884/mqtt');
+  const MQTT_USER = setting('user', '');
+  const MQTT_PASS = setting('pass', '');
+  const LAST_DEVICE_KEY = 'cm30-last-device-id';
+
+  const deviceSelectEl = document.getElementById('deviceSelect');
+  const knownDeviceIds = new Set();
+  let currentDeviceId = null;
+  let autoSelectFallbackTimer = null;
+
+  /** Adds [id] to the dropdown the first time it's seen — a device only ever gets in this list
+   * because we heard a real message from it, so being listed already proves it's alive.
+   *
+   * If it's the device localStorage remembers from last time, select it immediately. Otherwise,
+   * give the remembered device a brief window to show up too (it might just be a little slower
+   * to announce itself) before falling back to whichever device arrived first — without this
+   * fallback, a remembered device that's no longer running (renamed, replaced, or just a
+   * different machine than last time) would leave the page stuck on "(none seen yet)" forever
+   * even with a perfectly good device sitting right there in the list. */
+  function registerDevice(id) {
+    if (knownDeviceIds.has(id)) return;
+    knownDeviceIds.add(id);
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = id;
+    deviceSelectEl.appendChild(opt);
+
+    if (currentDeviceId) return;
+    const remembered = localStorage.getItem(LAST_DEVICE_KEY);
+    if (!remembered || remembered === id) {
+      selectDevice(id);
+    } else if (!autoSelectFallbackTimer) {
+      autoSelectFallbackTimer = setTimeout(() => {
+        autoSelectFallbackTimer = null;
+        if (!currentDeviceId) selectDevice(id); // remembered device never showed up — use this one
+      }, 1500);
+    }
+  }
+
+  /** Switches the whole page to watching/controlling [id] — clears the log (lines from a
+   * different device aren't meaningful mixed together) and re-syncs the config/settings panels
+   * from whichever device is now selected, since two machines can easily have different configs. */
+  function selectDevice(id) {
+    if (currentDeviceId === id) return;
+    currentDeviceId = id;
+    localStorage.setItem(LAST_DEVICE_KEY, id);
+    deviceSelectEl.value = id;
+    logEl.innerHTML = '';
+    lineCount = 0;
+    countEl.textContent = '0 lines';
+    addLine('-- watching device: ' + id + ' --');
+    deviceLinked = false;
+    markDeviceLinked();
+  }
+
+  deviceSelectEl.onchange = (e) => selectDevice(e.target.value);
+
+  const logEl = document.getElementById('log');
+  const statusEl = document.getElementById('status');
+  const countEl = document.getElementById('count');
+  let lineCount = 0;
+
+  // Must match MdbConfig.kt's names + default lengths exactly. Ordered by where each one
+  // actually happens in the MDB flow. JUST_RESET/CAN/VEND_APPROVED/VEND_DENIED/END_SESSION/
+  // SESSION_CANCEL are still editable on the device (MdbConfig still holds them, and
+  // setConfig/resetConfig still work on them) — just not exposed as rows in this panel, since
+  // their payloads are single fixed bytes with nothing meaningful to configure.
+  // "default" matches MdbConfig.kt's hardcoded defaults exactly — shown immediately so the
+  // panel is never empty, even before the device has answered a "getConfig" (or if it's running
+  // a build that predates this feature and never will).
+  // Byte 0 of every command is the MDB response ID — fixed by spec, never editable, since
+  // changing it would make the VMC misinterpret the whole packet. Every other byte gets its own
+  // box with a hover tooltip (native `title`) explaining exactly what that position means —
+  // except PERIPHERAL ID, which is almost entirely ASCII text and gets friendly named fields
+  // instead (see buildPeripheralIdFields below).
+
+  function hexBytesToAscii(hexBytes) {
+    return hexBytes.map((h) => String.fromCharCode(parseInt(h, 16) || 0x20)).join('');
+  }
+
+  /** Right-space-pads or truncates [str] to exactly [len] characters, returned as an array of
+   * 2-digit uppercase hex byte strings. */
+  function asciiToHexBytes(str, len) {
+    const out = [];
+    for (let i = 0; i < len; i++) {
+      const code = i < str.length ? str.charCodeAt(i) & 0xFF : 0x20; // space-pad
+      out.push(code.toString(16).padStart(2, '0').toUpperCase());
+    }
+    return out;
+  }
+
+  const CONFIG_ITEMS = [
+    {
+      name: 'READER_CONFIG_DATA', label: 'Reader Config Data',
+      desc: '1. SETUP response (response ID 0x01)',
+      default: '01 02 19 78 01 02 E8 0B',
+      bytes: [
+        { fixed: true, title: 'Response ID — fixed at 0x01 (READER CONFIG DATA). Required by the MDB spec.' },
+        { title: 'Feature Level — overwritten at runtime with the VMC\'s actual reported level; editing this default has no lasting effect once a real SETUP arrives.' },
+        { title: 'Country/Currency Code, high byte' },
+        { title: 'Country/Currency Code, low byte' },
+        { title: 'Scale Factor — multiplier applied to displayed prices' },
+        { title: 'Decimal Places — digits after the decimal point once scaled' },
+        { title: 'Application Maximum Response Time (seconds) — how long the VMC will wait for our replies' },
+        { title: 'Miscellaneous Options bitmap — overwritten at runtime with the mode argument' },
+      ],
+    },
+    {
+      name: 'READER_CONFIG_INFO', label: 'Reader Config Info (Peripheral ID) — Level 2',
+      desc: '2. EXPANSION response (response ID 0x09)',
+      levels: [2], // PERIPHERAL ID is a Level 2+ command per spec — a real Level 1 VMC never
+                   // sends EXPANSION REQUEST ID at all, so this is never sent at Level 1 either.
+                   // Level 3 gets its own separate row below (extra optional-feature-bits bytes).
+      default: '09 43 41 53 30 30 30 30 30 30 30 30 30 30 30 31 30 30 30 30 30 30 30 30 30 30 30 31 00 01',
+      simple: true, // rendered as friendly named fields, not a per-byte grid — see buildPeripheralIdFields
+    },
+    {
+      name: 'READER_CONFIG_INFO_L3', label: 'Reader Config Info (Peripheral ID) — Level 3',
+      desc: '2. EXPANSION response (response ID 0x09), plus 4 extra "optional feature bits" bytes only Level 3 has',
+      levels: [3], // hidden entirely unless the level selector matches
+      default: '09 43 41 53 30 30 30 30 30 30 30 30 30 30 30 31 30 30 30 30 30 30 30 30 30 30 30 31 00 01 00 00 00 00',
+      simple: true, // manufacturer/serial/model/software fields are shared with the Level 2 row's
+                     // layout; the 4 trailing feature-bits bytes render as their own byte boxes
+      // Per the real MDB/ICP spec (Section 7.4.4), these 32 feature bits are sent MSB-first —
+      // "bit 31 is sent first and bit 0 is sent last" — so Z31 (sent first) holds bits 31-24 and
+      // Z34 (sent last) holds bits 0-7, the ones actually defined today. Getting this backwards
+      // (treating Z31 as the low-bit byte) doesn't break anything AS LONG AS every byte stays
+      // 0x00 — declaring zero support either way — but would silently set the wrong feature if
+      // any bit here were ever turned on without fixing the mapping first.
+      extraBytes: [
+        { title: 'Optional feature bits Z31 (field bits 31-24) — none currently defined by the spec. Reserved, left at 0.' },
+        { title: 'Optional feature bits Z32 (field bits 23-16) — none currently defined by the spec. Reserved, left at 0.' },
+        { title: 'Optional feature bits Z33 (field bits 15-8) — bit 0 (field bit 8): Coupon. Bit 1 (bit 9): Ask Begin Session. Bit 2 (bit 10): Enhanced Item Number Information. Remaining bits reserved. All left at 0 (unsupported).' },
+        { title: 'Optional feature bits Z34 (field bits 7-0, sent LAST) — bit 0: File Transport Layer. Bit 1: 32-bit monetary format. Bit 2: multi-currency/multi-lingual. Bit 3: Negative Vend. Bit 4: data entry. Bit 5: Always Idle — set this bit (e.g. hex 20) to let a VEND REQUEST arrive directly in Enabled state with no prior Begin Session; the device reads this bit directly, no separate setting. Bit 6: Remote Vend. Bit 7: Basket/Partial Refund. All left at 0 (unsupported) except what you explicitly enable here.' },
+      ],
+    },
+    {
+      name: 'SESSION_BEGIN', label: 'Begin Session (Level 1)',
+      desc: '3. Session starts (response ID 0x03) — sent when the MDB level selector (top bar) is set to Level 1. '
+        + 'LENGTH IS EDITABLE (1–35 bytes): enter exactly the bytes this machine wants. '
+        + 'Standard Level 1 form: 03 + Funds Available high/low (FF FF = unknown).',
+      levels: [1], // hidden entirely unless the level selector matches
+      variableLength: true,
+      default: '03 FF FF',
+    },
+    {
+      name: 'SESSION_BEGIN_L2', label: 'Begin Session (Level 2/3)',
+      desc: '3. Session starts (response ID 0x03) — sent when the MDB level selector (top bar) is set to Level 2 or Level 3. '
+        + 'LENGTH IS EDITABLE (1–35 bytes): some feature-level-2 machines only accept the short Level-1-style '
+        + '3-byte form (03 FF FF) — paste exactly the bytes your machine wants. '
+        + 'Standard Level 2/3 form: 03 + Funds hi/lo + 4-byte Payment Media ID + Payment Type + 2-byte Payment Data '
+        + '(CHK is computed and appended by the device, never stored here).',
+      levels: [2, 3], // hidden entirely unless the level selector matches
+      variableLength: true,
+      default: '03 FF FF 00 00 00 01 00 00 00',
+    },
+    {
+      name: 'REVALUE_LIMIT', label: 'Revalue Limit',
+      desc: '4. Reply to REVALUE LIMIT REQUEST (response ID 0x0F)',
+      levels: [2, 3], // Level 1 has no REVALUE command at all — hidden entirely, not just inactive
+      default: '0F FF FF',
+      bytes: [
+        { fixed: true, title: 'Response ID — fixed at 0x0F (REVALUE LIMIT AMOUNT). Required by the MDB spec.' },
+        { title: 'Revalue Limit, high byte — overwritten at runtime' },
+        { title: 'Revalue Limit, low byte — overwritten at runtime' },
+      ],
+    },
+  ];
+
+  const configBody = document.getElementById('configBody');
+  const configOverlay = document.getElementById('configOverlay');
+  const CONFIG_ACK_TIMEOUT_MS = 6000;
+  const pendingConfigTimers = {}; // name -> timeout id, so a late/duplicate ack can't double-fire
+  const explicitAckShown = {}; // name -> true once a real per-field ack is displayed, so the
+                                // routine CONFIG_JSON republish right behind every ack doesn't
+                                // immediately clobber it with a generic "synced with device"
+
+  function setRowStatus(name, text, cls) {
+    const row = configBody.querySelector('.config-row[data-name="' + name + '"]');
+    if (!row) return;
+    const status = row.querySelector('.config-status');
+    status.textContent = text;
+    status.className = 'config-status ' + cls;
+  }
+
+  function buildConfigPanel() {
+    configBody.innerHTML = '';
+    for (const item of CONFIG_ITEMS) {
+      const row = document.createElement('div');
+      row.className = 'config-row';
+      row.dataset.name = item.name;
+      if (item.levels) row.dataset.levels = item.levels.join(',');
+
+      const head = document.createElement('div');
+      head.className = 'config-row-head';
+      const nameEl = document.createElement('span');
+      nameEl.className = 'config-name';
+      nameEl.textContent = item.label;
+      head.appendChild(nameEl);
+
+      // Only SESSION_BEGIN / SESSION_BEGIN_L2 actually depend on the MDB level selector (top
+      // bar) — this badge makes it obvious at a glance which of the two rows the device will
+      // really send, instead of leaving both looking equally "live".
+      if (item.name === 'SESSION_BEGIN' || item.name === 'SESSION_BEGIN_L2') {
+        const badge = document.createElement('span');
+        badge.className = 'level-badge';
+        badge.dataset.forLevel = item.name === 'SESSION_BEGIN' ? '1' : '2';
+        head.appendChild(badge);
+      }
+
+      row.appendChild(head);
+
+      // One combined line: the editable field(s), then Save/Reset right next to them — not
+      // stacked on separate lines.
+      const controlsLine = document.createElement('div');
+      controlsLine.className = 'config-controls-line';
+
+      if (item.simple) {
+        nameEl.title = item.desc + ' — manufacturer/serial/model/software, as text';
+        const peripheralContainer = buildPeripheralIdFields(item);
+        row.peripheralFields = peripheralContainer.peripheralFieldsRef;
+        controlsLine.appendChild(peripheralContainer);
+      } else if (item.variableLength) {
+        // Free-form hex editor: BOTH the byte values AND the byte count are up to the user here
+        // (1–35 bytes), because real machines disagree about which Begin Session form they accept.
+        nameEl.title = item.desc;
+        const wrap = document.createElement('div');
+        wrap.className = 'peripheral-fields';
+        const input = document.createElement('input');
+        input.className = 'peripheral-text free-hex';
+        input.value = item.default;
+        input.title = item.desc;
+        input.style.width = '38ch';
+        input.spellcheck = false;
+        const counter = document.createElement('span');
+        counter.className = 'free-hex-count';
+        const updateCounter = () => {
+          const clean = input.value.replace(/[^0-9A-Fa-f]/g, '');
+          counter.textContent = clean.length % 2 === 0
+            ? (clean.length / 2) + ' byte' + (clean.length === 2 ? '' : 's')
+            : 'incomplete byte';
+          counter.style.color = clean.length % 2 === 0 && clean.length >= 2 && clean.length <= 70 ? '' : '#e86f6f';
+        };
+        input.oninput = () => {
+          input.value = input.value.toUpperCase().replace(/[^0-9A-F ]/g, '');
+          input.classList.add('dirty');
+          updateCounter();
+        };
+        updateCounter();
+        wrap.appendChild(input);
+        wrap.appendChild(counter);
+        row.freeHexInput = input;
+        row.freeHexCounter = updateCounter;
+        controlsLine.appendChild(wrap);
+      } else {
+        nameEl.title = item.desc + ' — ' + item.bytes.length + ' byte' + (item.bytes.length === 1 ? '' : 's') +
+          ' (byte 0, dashed, is the response ID — fixed by the MDB spec)';
+        const byteRow = document.createElement('div');
+        byteRow.className = 'config-byte-row';
+        const defaultBytes = item.default.split(' ');
+        item.bytes.forEach((b, i) => {
+          const input = document.createElement('input');
+          input.className = 'config-byte' + (b.fixed ? ' fixed' : '');
+          input.maxLength = 2;
+          input.value = defaultBytes[i] || '00';
+          input.title = b.title; // hover shows exactly what this byte means
+          if (b.fixed) {
+            input.disabled = true;
+          } else {
+            input.oninput = () => {
+              input.value = input.value.replace(/[^0-9A-Fa-f]/g, '').toUpperCase().slice(0, 2);
+              input.classList.add('dirty');
+            };
+          }
+          byteRow.appendChild(input);
+        });
+        controlsLine.appendChild(byteRow);
+      }
+
+      const controls = document.createElement('div');
+      controls.className = 'config-controls';
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Save';
+      saveBtn.onclick = () => saveConfigRow(item.name);
+      const resetBtn = document.createElement('button');
+      resetBtn.textContent = 'Reset';
+      resetBtn.onclick = () => sendConfigCommand(item.name, 'resetConfig:' + item.name, 'Reset ' + item.label);
+      controls.appendChild(saveBtn);
+      controls.appendChild(resetBtn);
+      controlsLine.appendChild(controls);
+
+      const status = document.createElement('div');
+      status.className = 'config-status';
+      status.textContent = 'default value — not yet confirmed from device';
+
+      row.appendChild(controlsLine);
+      row.appendChild(status);
+      configBody.appendChild(row);
+    }
+    updateSessionBeginActiveBadges();
+  }
+
+  /** Hides any config row that doesn't apply at the MDB level dropdown's current value — not
+   * just the two Begin Session alternates, but anything level-gated (REVALUE_LIMIT doesn't exist
+   * as a command at all under Level 1). A row with no `levels` restriction is always shown.
+   * Switching the level dropdown updates which rows are visible instantly. */
+  function updateSessionBeginActiveBadges() {
+    const level = document.getElementById('mdbLevelSelect').value;
+    configBody.querySelectorAll('.config-row').forEach((row) => {
+      if (row.dataset.levels) {
+        row.style.display = row.dataset.levels.split(',').includes(level) ? '' : 'none';
+      }
+    });
+    document.querySelectorAll('.level-badge').forEach((badge) => {
+      badge.textContent = 'ACTIVE — sent by device';
+      badge.className = 'level-badge active';
+    });
+  }
+
+  /** Renders PERIPHERAL ID as 4 friendly named fields (Manufacturer/Serial/Model/Software)
+   * instead of 30 individual hex boxes — nearly the whole payload is ASCII text, so editing it
+   * as text is far more useful than editing raw bytes one at a time. Byte 0 (the fixed response
+   * ID 0x09) is never shown at all here since there's nothing to look at or edit.
+   *
+   * If [item.default] has more than the base 30 bytes (only true for the Level 3 row, which adds
+   * 4 "optional feature bits" bytes after Software Version), each extra byte gets its own plain
+   * hex box appended after the friendly fields, using [item.extraBytes][i].title for its tooltip
+   * — there's no ASCII meaning to those bytes, so raw hex is the right editing model for them. */
+  function buildPeripheralIdFields(item) {
+    const defaultBytes = item.default.split(' ');
+    const container = document.createElement('div');
+    container.className = 'peripheral-fields';
+
+    // No visible label above each box — the field's purpose shows on hover instead (same as the
+    // per-byte grid's tooltips), which is what keeps this whole row compact enough to fit
+    // Save/Reset on the same line.
+    function makeField(value, maxLength, hint, widthCh) {
+      const input = document.createElement('input');
+      input.className = 'peripheral-text';
+      input.maxLength = maxLength;
+      input.value = value;
+      input.title = hint;
+      input.style.width = widthCh + 'ch'; // sized to this field's own length, not a generic default
+      input.oninput = () => input.classList.add('dirty');
+      container.appendChild(input);
+      return input;
+    }
+
+    const swInt = parseInt(defaultBytes[28], 16) * 256 + parseInt(defaultBytes[29], 16);
+    const fields = {
+      manufacturer: makeField(hexBytesToAscii(defaultBytes.slice(1, 4)), 3,
+        'Manufacturer — ASCII, 3 characters, space-padded if shorter', 5),
+      serial: makeField(hexBytesToAscii(defaultBytes.slice(4, 16)), 12,
+        'Serial Number — ASCII, 12 characters, space-padded if shorter', 13),
+      model: makeField(hexBytesToAscii(defaultBytes.slice(16, 28)), 12,
+        'Model Number — ASCII, 12 characters, space-padded if shorter', 13),
+      software: makeField(String(swInt), 5,
+        'Software Version (0–65535) — stored on the wire as 2 raw bytes (high×256 + low), shown here as one integer', 7),
+    };
+    fields.software.type = 'number';
+    fields.software.min = 0;
+    fields.software.max = 65535;
+
+    if (defaultBytes.length > 30) {
+      fields.extraBytes = defaultBytes.slice(30).map((byteHex, i) => {
+        const input = document.createElement('input');
+        input.className = 'config-byte';
+        input.maxLength = 2;
+        input.value = byteHex;
+        input.title = (item.extraBytes && item.extraBytes[i] && item.extraBytes[i].title) || ('Byte ' + (30 + i));
+        input.oninput = () => {
+          input.value = input.value.replace(/[^0-9A-Fa-f]/g, '').toUpperCase().slice(0, 2);
+          input.classList.add('dirty');
+        };
+        container.appendChild(input);
+        return input;
+      });
+    }
+
+    container.peripheralFieldsRef = fields; // read back by buildConfigPanel's caller below
+    return container;
+  }
+
+  function saveConfigRow(name) {
+    const row = configBody.querySelector('.config-row[data-name="' + name + '"]');
+    let hex;
+    if (row.freeHexInput) {
+      // Variable-length payload: normalize whatever was typed into clean byte pairs and
+      // validate locally (even hex count, 1–35 bytes) before bothering the device.
+      const clean = row.freeHexInput.value.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+      if (clean.length === 0 || clean.length % 2 !== 0) {
+        setRowStatus(name, 'not sent — hex is incomplete (odd number of digits)', 'err');
+        return;
+      }
+      const pairs = clean.match(/.{2}/g);
+      if (pairs.length > 35) {
+        setRowStatus(name, 'not sent — ' + pairs.length + ' bytes, maximum is 35', 'err');
+        return;
+      }
+      hex = pairs.join(' ');
+      row.freeHexInput.value = hex; // show back the normalized form that will be sent
+      row.freeHexCounter();
+    } else if (row.peripheralFields) {
+      const f = row.peripheralFields;
+      const swInt = Math.max(0, Math.min(65535, parseInt(f.software.value, 10) || 0));
+      const swBytes = [
+        (swInt >> 8).toString(16).padStart(2, '0').toUpperCase(),
+        (swInt & 0xFF).toString(16).padStart(2, '0').toUpperCase(),
+      ];
+      hex = [
+        '09',
+        ...asciiToHexBytes(f.manufacturer.value, 3),
+        ...asciiToHexBytes(f.serial.value, 12),
+        ...asciiToHexBytes(f.model.value, 12),
+        ...swBytes,
+        ...(f.extraBytes ? f.extraBytes.map((inp) => (inp.value || '00').padStart(2, '0')) : []),
+      ].join(' ');
+    } else {
+      hex = [...row.querySelectorAll('.config-byte')]
+        .map((inp) => (inp.value || '00').padStart(2, '0'))
+        .join(' ');
+    }
+    sendConfigCommand(name, 'setConfig:' + name + ':' + hex, 'Set ' + name);
+  }
+
+  /** Sends a config-changing command and waits for the device's own ack message (a
+   * "[remote] NAME updated/reset -> ..." or "[remote] setConfig NAME failed: ..." line) to
+   * confirm what actually happened — never just assumes the send succeeded. Times out after
+   * CONFIG_ACK_TIMEOUT_MS with an explicit "no response" status instead of hanging forever. */
+  function sendConfigCommand(name, cmd, label) {
+    sendCommand(cmd, label);
+    setRowStatus(name, 'sent — waiting for device ack…', 'pending');
+    clearTimeout(pendingConfigTimers[name]);
+    pendingConfigTimers[name] = setTimeout(() => {
+      pendingConfigTimers[name] = null;
+      setRowStatus(
+        name,
+        'no ack from device after ' + (CONFIG_ACK_TIMEOUT_MS / 1000) + 's — is it running the ' +
+          'latest build and connected? (Refresh from device to re-check)',
+        'err'
+      );
+    }, CONFIG_ACK_TIMEOUT_MS);
+  }
+
+  /** Parses the device's own remote-command replies (plain log lines, not CONFIG_JSON) to route
+   * a real per-field acknowledgment — success or failure — to the row that requested it. */
+  function handleConfigAck(text) {
+    let m;
+    if ((m = text.match(/^\[remote\] (\w+) updated -> (.+)$/)) ||
+        (m = text.match(/^\[remote\] (\w+) reset to default -> (.+)$/))) {
+      clearTimeout(pendingConfigTimers[m[1]]);
+      pendingConfigTimers[m[1]] = null;
+      explicitAckShown[m[1]] = true;
+      setRowStatus(m[1], 'confirmed by device — ' + m[2], 'ok');
+    } else if ((m = text.match(/^\[remote\] setConfig (\w+) failed: (.+)$/))) {
+      clearTimeout(pendingConfigTimers[m[1]]);
+      pendingConfigTimers[m[1]] = null;
+      explicitAckShown[m[1]] = true;
+      setRowStatus(m[1], 'rejected by device: ' + m[2], 'err');
+    }
+  }
+
+  function applyConfigSnapshot(json) {
+    let data;
+    try {
+      data = JSON.parse(json);
+    } catch (e) {
+      addLine('-- CONFIG_JSON parse error: ' + e.message + ' --');
+      return;
+    }
+    for (const item of CONFIG_ITEMS) {
+      const row = configBody.querySelector('.config-row[data-name="' + item.name + '"]');
+      if (!row || !(item.name in data)) continue;
+      const hexBytes = data[item.name].trim().split(/\s+/);
+      if (row.freeHexInput) {
+        row.freeHexInput.value = hexBytes.join(' ').toUpperCase();
+        row.freeHexInput.classList.remove('dirty');
+        row.freeHexCounter();
+      } else if (row.peripheralFields) {
+        const f = row.peripheralFields;
+        f.manufacturer.value = hexBytesToAscii(hexBytes.slice(1, 4));
+        f.serial.value = hexBytesToAscii(hexBytes.slice(4, 16));
+        f.model.value = hexBytesToAscii(hexBytes.slice(16, 28));
+        f.software.value = String(parseInt(hexBytes[28], 16) * 256 + parseInt(hexBytes[29], 16));
+        if (f.extraBytes) {
+          f.extraBytes.forEach((inp, i) => {
+            if (hexBytes[30 + i]) inp.value = hexBytes[30 + i].toUpperCase();
+          });
+        }
+        [f.manufacturer, f.serial, f.model, f.software, ...(f.extraBytes || [])].forEach((inp) => inp.classList.remove('dirty'));
+      } else {
+        const inputs = row.querySelectorAll('.config-byte');
+        inputs.forEach((inp, i) => {
+          if (hexBytes[i]) inp.value = hexBytes[i].toUpperCase();
+          inp.classList.remove('dirty');
+        });
+      }
+      // Don't stomp a save that's actively in flight (waiting on its own ack), and don't let the
+      // routine CONFIG_JSON republish that immediately follows every ack overwrite the specific
+      // confirmation message it just showed — that flag only clears on a deliberate refresh.
+      if (!pendingConfigTimers[item.name] && !explicitAckShown[item.name]) {
+        const status = row.querySelector('.config-status');
+        status.textContent = 'synced with device';
+        status.className = 'config-status ok';
+      }
+    }
+  }
+
+  buildConfigPanel();
+
+  function refreshConfigFromDevice() {
+    for (const name of Object.keys(explicitAckShown)) delete explicitAckShown[name];
+    sendCommand('getConfig', 'Refresh config');
+  }
+
+  document.getElementById('configBtn').onclick = () => {
+    configOverlay.classList.add('open');
+    refreshConfigFromDevice();
+  };
+  document.getElementById('configCloseBtn').onclick = () => configOverlay.classList.remove('open');
+  document.getElementById('configRefreshBtn').onclick = refreshConfigFromDevice;
+
+  const statusTextEl = document.getElementById('statusText');
+  function setStatus(state, text) {
+    statusEl.className = state;
+    statusTextEl.textContent = text;
+  }
+
+  // Three real stages, not just "did the browser reach the broker": connecting to MQTT itself
+  // proves nothing about the device — a real "ping" round trip is the only way to know it's
+  // actually there and listening, so that's what "connected" (green) means here.
+  const DEVICE_PING_TIMEOUT_MS = 5000;
+  const DEVICE_PING_RETRY_MS = 8000;
+  let deviceLinked = false;
+  let pingTimer = null;
+
+  /** With no fixed device topic anymore, this can only actively ping [currentDeviceId] — if
+   * nothing is selected yet (no devices seen, and nothing remembered from last time), there's
+   * nothing to publish to, so it just waits for a heartbeat to arrive on its own instead. */
+  function pingDevice() {
+    if (deviceLinked) return;
+    if (currentDeviceId) {
+      setStatus('linking', 'linking to device ' + currentDeviceId + '…');
+      client.publish(TOPIC_PREFIX + currentDeviceId + '/commands', 'ping');
+    } else {
+      setStatus('linking', 'waiting for a device…');
+    }
+    clearTimeout(pingTimer);
+    pingTimer = setTimeout(() => {
+      if (deviceLinked) return;
+      setStatus('device-offline', currentDeviceId
+        ? ('device ' + currentDeviceId + ' not responding — retrying…')
+        : 'no devices responding yet — waiting…');
+      pingTimer = setTimeout(pingDevice, DEVICE_PING_RETRY_MS);
+    }, DEVICE_PING_TIMEOUT_MS);
+  }
+
+  /** Called for PONG or literally any other real message from [currentDeviceId] — all of them
+   * equally prove it's alive and listening, not just a dedicated pong reply. */
+  function markDeviceLinked() {
+    if (deviceLinked) return;
+    deviceLinked = true;
+    clearTimeout(pingTimer);
+    setStatus('connected', 'connected: ' + currentDeviceId);
+    // The device now persists these across restarts (see AppSettings.kt) — fetch the real
+    // current values instead of leaving the dropdowns on whatever they defaulted to on load.
+    sendCommand('getSettings', 'Refresh settings');
+    // Fetch this build's log codebook (silently — it's plumbing, not a user action) so
+    // RABBAH_LOG items decode into sentences. Answered with CODEBOOK_JSON:{...}.
+    if (client.connected && !codebooks[currentDeviceId]) {
+      client.publish(TOPIC_PREFIX + currentDeviceId + '/commands', 'getCodebook');
+    }
+  }
+
+  // -------- compact Rabbah log items (RABBAH_LOG:) --------
+  // The device emits codes, not sentences; the codebook it serves turns them back. Decode
+  // tables come from the device itself, so they can never drift from the emitting build.
+  const codebooks = {}; // deviceId -> { schema -> { code -> {eventName, template, paramCount} } }
+
+  function applyCodebook(deviceId, json) {
+    try {
+      codebooks[deviceId] = JSON.parse(json);
+    } catch (e) {
+      addLine('-- CODEBOOK_JSON parse error: ' + e.message + ' --');
+    }
+  }
+
+  /** One compact item -> one decoded sentence. Unknown codes (older viewer cache, newer
+   * device) still render as [SCHEMA/code] p0 | p1 — logs are never dropped. */
+  function addCompactLine(json) {
+    let item;
+    try {
+      item = JSON.parse(json);
+    } catch (e) {
+      addLine(json); // not actually JSON — show it raw rather than lose it
+      return;
+    }
+    const p = Array.isArray(item.p) ? item.p : [];
+    const book = codebooks[currentDeviceId];
+    const entry = book && book[item.s] && book[item.s][item.m];
+    let text;
+    if (entry) {
+      text = entry.template.replace(/\{(\d+)\}/g, (m, i) => (p[i] !== undefined ? p[i] : m));
+      if (p.length !== entry.paramCount) {
+        text += '  [malformed: ' + p.length + '/' + entry.paramCount + ' params]';
+      }
+    } else {
+      text = '[' + item.s + '/' + item.m + '] ' + p.join(' | ');
+      if (client.connected && currentDeviceId && !book) {
+        client.publish(TOPIC_PREFIX + currentDeviceId + '/commands', 'getCodebook');
+      }
+    }
+    if (item.i) text += '   #' + item.i; // session id — same tag across one whole vend
+    addLine(text, item.k === 'e' ? 'err' : (item.k === 'd' ? '' : 'rx'));
+  }
+
+  /** Sets the two mode dropdowns to whatever the device actually reports, from a "SETTINGS_JSON:"
+   * message — either a deliberate "getSettings" reply or the device announcing itself on its own
+   * boot. Never assume a default; always reflect the persisted truth. */
+  function applySettingsSnapshot(json) {
+    let data;
+    try {
+      data = JSON.parse(json);
+    } catch (e) {
+      addLine('-- SETTINGS_JSON parse error: ' + e.message + ' --');
+      return;
+    }
+    if (data.sessionBeginMode) document.getElementById('sessionModeSelect').value = data.sessionBeginMode;
+    if (data.vmcCancelMode) document.getElementById('cancelModeSelect').value = data.vmcCancelMode;
+    if (typeof data.showPollTraffic === 'boolean') document.getElementById('pollVisibilityCheck').checked = data.showPollTraffic;
+    if (typeof data.showUnhandledCmd === 'boolean') document.getElementById('unhandledVisibilityCheck').checked = data.showUnhandledCmd;
+    if (data.mdbLevel) document.getElementById('mdbLevelSelect').value = String(data.mdbLevel);
+    updateSessionBeginActiveBadges();
+  }
+
+  // The VMC status bar can't just react to traffic — POLL/ACK is hidden by default, so long
+  // idle stretches produce zero visible messages even on a perfectly healthy bus. It's driven
+  // entirely by the device's own periodic "VMC_STATUS:" heartbeat instead, with its own
+  // staleness timeout in case the heartbeat itself stops arriving (app closed, port not open).
+  const VMC_STATUS_STALE_MS = 10000;
+  const vmcStatusEl = document.getElementById('vmcStatus');
+  const vmcStatusTextEl = document.getElementById('vmcStatusText');
+  let vmcStatusStaleTimer = null;
+
+  function setVmcStatus(cls, text) {
+    vmcStatusEl.className = cls;
+    vmcStatusTextEl.textContent = text;
+  }
+
+  function applyVmcStatus(json) {
+    let data;
+    try {
+      data = JSON.parse(json);
+    } catch (e) {
+      return;
+    }
+    clearTimeout(vmcStatusStaleTimer);
+    // Always shows the real current state by name — INACTIVE/DISABLED/ENABLED/VEND — rather than
+    // collapsing everything down to just "connected"/"not connected". Staleness (no recent bus
+    // traffic) is layered on top as a qualifier, except for INACTIVE where it's not meaningful.
+    const STATE_INFO = {
+      INACTIVE_STATE: { cls: 'vmc-inactive', label: 'INACTIVE — no handshake yet' },
+      DISABLED_STATE: { cls: 'vmc-disabled', label: 'DISABLED — handshake done, reader not enabled' },
+      ENABLED_STATE: { cls: 'vmc-enabled', label: 'ENABLED — reader enabled, waiting for session' },
+      VEND_STATE: { cls: 'vmc-vend', label: 'VEND — session active' },
+    };
+    const info = STATE_INFO[data.state] || { cls: 'vmc-nodata', label: data.state };
+    if (data.state !== 'INACTIVE_STATE' && !data.recentActivity) {
+      setVmcStatus(info.cls + ' vmc-stale-overlay', info.label + ' (stale — no recent traffic)');
+    } else {
+      setVmcStatus(info.cls, info.label);
+    }
+    // If the heartbeat itself stops arriving (app closed, port not open, phone off), fall back
+    // to "no data" rather than showing a stale "connected" pill forever.
+    vmcStatusStaleTimer = setTimeout(() => {
+      setVmcStatus('vmc-nodata', 'no VMC data — device not reporting');
+    }, VMC_STATUS_STALE_MS);
+  }
+
+  function addLine(text, cls) {
+    const row = document.createElement('div');
+    row.className = 'line';
+
+    const ts = document.createElement('span');
+    ts.className = 'ts';
+    ts.textContent = new Date().toLocaleTimeString('en-GB', { hour12: false }) +
+      '.' + String(new Date().getMilliseconds()).padStart(3, '0');
+
+    const msg = document.createElement('span');
+    msg.className = 'msg ' + (cls || (text.startsWith('--') ? 'info' : text.startsWith('RX') ? 'rx' : ''));
+    msg.textContent = text;
+
+    row.appendChild(ts);
+    row.appendChild(msg);
+    logEl.appendChild(row);
+    logEl.scrollTop = logEl.scrollHeight;
+
+    lineCount++;
+    countEl.textContent = lineCount + ' lines';
+  }
+
+  document.getElementById('clearBtn').onclick = () => {
+    logEl.innerHTML = '';
+    lineCount = 0;
+    countEl.textContent = '0 lines';
+  };
+
+  setStatus('connecting', 'connecting to MQTT…');
+  const client = mqtt.connect(BROKER_URL, {
+    clientId: 'cm30-viewer-' + Math.random().toString(16).slice(2),
+    reconnectPeriod: 2000,
+    username: MQTT_USER || undefined,
+    password: MQTT_PASS || undefined,
+  });
+
+  client.on('connect', () => {
+    client.subscribe(LOG_TOPIC_FILTER);
+    pingDevice();
+  });
+  client.on('reconnect', () => {
+    deviceLinked = false;
+    clearTimeout(pingTimer);
+    setStatus('connecting', 'reconnecting to MQTT…');
+  });
+  client.on('close', () => {
+    deviceLinked = false;
+    clearTimeout(pingTimer);
+    setStatus('disconnected', 'disconnected');
+  });
+  client.on('error', (err) => addLine('-- mqtt error: ' + err.message + ' --'));
+  client.on('message', (topic, payload) => {
+    // Topic shape: cm30-mdb/hamdan-rabbah/<deviceId>/liveLog — every device we hear from gets
+    // registered (so it shows up in the dropdown) even if it's not the one currently selected.
+    const fromDevice = topic.split('/')[2];
+    registerDevice(fromDevice);
+    if (fromDevice !== currentDeviceId) return; // presence noted, but not who we're watching
+
+    const text = payload.toString();
+    markDeviceLinked(); // any real message at all proves the selected device is alive
+    if (text === 'PONG') {
+      return; // just a heartbeat reply, nothing to show
+    }
+    if (text.startsWith('CONFIG_JSON:')) {
+      applyConfigSnapshot(text.slice('CONFIG_JSON:'.length));
+      return; // kept out of the scrolling log — it's just a config sync, not a real MDB exchange
+    }
+    if (text.startsWith('SETTINGS_JSON:')) {
+      applySettingsSnapshot(text.slice('SETTINGS_JSON:'.length));
+      return; // same reasoning — a settings sync, not a real MDB exchange
+    }
+    if (text.startsWith('VMC_STATUS:')) {
+      applyVmcStatus(text.slice('VMC_STATUS:'.length));
+      return; // a periodic heartbeat, not a real MDB exchange — kept out of the scrolling log
+    }
+    if (text.startsWith('CODEBOOK_JSON:')) {
+      applyCodebook(fromDevice, text.slice('CODEBOOK_JSON:'.length));
+      return; // decode plumbing, not a log line
+    }
+    if (text.startsWith('RABBAH_LOG:')) {
+      addCompactLine(text.slice('RABBAH_LOG:'.length));
+      return; // decoded into a sentence by the codebook
+    }
+    handleConfigAck(text);
+    addLine(text);
+  });
+
+  function sendCommand(cmd, label) {
+    if (!client.connected) { addLine('-- not connected, command not sent: ' + cmd + ' --'); return; }
+    if (!currentDeviceId) { addLine('-- no device selected, command not sent: ' + cmd + ' --'); return; }
+    client.publish(TOPIC_PREFIX + currentDeviceId + '/commands', cmd);
+    addLine('[sent] ' + label, 'cmd');
+  }
+
+  document.getElementById('openBtn').onclick = () => sendCommand('open', 'Open');
+  document.getElementById('closeBtn').onclick = () => sendCommand('close', 'Close');
+  document.getElementById('beginSessionBtn').onclick = () => sendCommand('beginSession', 'Begin Session');
+  document.getElementById('sessionModeSelect').onchange = (e) => {
+    const mode = e.target.value; // 'auto' | 'manual'
+    sendCommand('setSessionMode:' + mode, 'Set session begin mode: ' + mode);
+  };
+  document.getElementById('mdbLevelSelect').onchange = (e) => {
+    const level = e.target.value; // '1' | '2' | '3'
+    sendCommand('setMdbLevel:' + level, 'Set MDB level: ' + level);
+    updateSessionBeginActiveBadges(); // reflect immediately; getSettings/SETTINGS_JSON will confirm
+  };
+  document.getElementById('vendBtn').onclick = () => sendCommand('vendApprove', 'Vend Approve');
+
+  // Which response Vend Cancel sends is a pure page preference (there's no device-side "current
+  // setting" for it — every press states its own choice), so it's remembered in localStorage
+  // rather than round-tripped to the device like the other two dropdowns.
+  const cancelSendSelect = document.getElementById('cancelSendSelect');
+  const savedCancelSend = localStorage.getItem('cancelSendMode');
+  if (savedCancelSend) cancelSendSelect.value = savedCancelSend;
+  cancelSendSelect.onchange = () => localStorage.setItem('cancelSendMode', cancelSendSelect.value);
+
+  document.getElementById('cancelVendBtn').onclick = () => {
+    const mode = cancelSendSelect.value; // 'sessionCancel' | 'vendDenied'
+    sendCommand('cancelVend:' + mode, 'Cancel Vend (' + mode + ')');
+  };
+
+  document.getElementById('cancelModeSelect').onchange = (e) => {
+    const mode = e.target.value; // 'sessionCancel' | 'vendDenied'
+    sendCommand('setCancelMode:' + mode, 'Set VMC-cancel mode: ' + mode);
+  };
+
+  document.getElementById('pollVisibilityCheck').onchange = (e) => {
+    sendCommand('setPollVisibility:' + (e.target.checked ? 'on' : 'off'), 'Show POLL/ACK: ' + e.target.checked);
+  };
+  document.getElementById('unhandledVisibilityCheck').onchange = (e) => {
+    sendCommand('setUnhandledVisibility:' + (e.target.checked ? 'on' : 'off'), 'Show unhandled: ' + e.target.checked);
+  };
+</script>
+</body>
+</html>

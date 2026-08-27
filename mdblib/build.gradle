@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.ciontek.mdblib'
+    compileSdkVersion 36
+
+    defaultConfig {
+        minSdkVersion 30
+        targetSdkVersion 30
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    // Real CM30 hardware library (armeabi-v7a native code) — this library is for the actual
+    // device, unlike the app module's simulator flavor.
+    implementation(name: 'CM30-HardwareLibrary-1.0.9', ext: 'aar')
+}

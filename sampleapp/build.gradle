@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.ciontek.mdbsample'
+    compileSdkVersion 36
+
+    defaultConfig {
+        applicationId "com.ciontek.mdbsample"
+        minSdkVersion 30
+        targetSdkVersion 30
+        versionCode 3
+        versionName "1.2"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+repositories {
+    // Needed so this module's runtime classpath can resolve mdblib's CM30 vendor AAR dependency.
+    flatDir {
+        dirs rootProject.file('mdblib/libs')
+    }
+}
+
+dependencies {
+    implementation project(':mdblib')
+}

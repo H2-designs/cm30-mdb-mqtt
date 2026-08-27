@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.ciontek.HardwareDemo'
+    compileSdkVersion 36
+
+    defaultConfig {
+        // Renamed so the MDM treats this as a fresh app (it was blocking uploads of a higher
+        // version under the old applicationId).
+        applicationId "com.ciontek.mdbslave2"
+        minSdkVersion 30
+        targetSdkVersion 30
+        // 2.x = the library split: all MDB + MQTT logic now lives in :mdb-lib and :mqtt-lib,
+        // and this app is just the thin reference integration of the two AARs.
+        versionCode 52
+        versionName "2.13.4"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+}
+
+dependencies {
+    implementation project(':mdb-lib')
+    implementation project(':mqtt-lib')
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'com.google.android.material:material:1.1.0'
+}

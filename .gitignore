@@ -1,0 +1,16 @@
+# Build output
+.gradle/
+build/
+*/build/
+captures/
+
+# IDE state
+.idea/
+*.iml
+.DS_Store
+
+# Machine-local config (SDK paths etc.)
+local.properties
+
+# Stray Windows artifact
+nul
