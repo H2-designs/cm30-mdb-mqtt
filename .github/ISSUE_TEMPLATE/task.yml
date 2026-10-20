@@ -1,0 +1,57 @@
+name: Task
+description: A unit of work for the team (see team/TASK_FORMAT.md)
+labels: []
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What to build
+      description: One or two sentences, and which module.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+    validations:
+      required: true
+  - type: textarea
+    id: situations
+    attributes:
+      label: Every situation it must handle
+      description: One bullet per path, including failures and edge cases.
+    validations:
+      required: true
+  - type: textarea
+    id: out
+    attributes:
+      label: Out of scope
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checkable statements. Include doc update, version bump, dist/ artifact.
+      value: |
+        - [ ]
+        - [ ] LIBRARY_README.md updated (or why not)
+        - [ ] Version bumped:
+        - [ ] Artifact in dist/ (if a deliverable):
+    validations:
+      required: true
+  - type: dropdown
+    id: bench
+    attributes:
+      label: Bench needed?
+      options:
+        - "no"
+        - "yes"
+    validations:
+      required: true
+  - type: textarea
+    id: benchwhat
+    attributes:
+      label: If bench needed, what must be observed on the real machine
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Owner decisions already made
