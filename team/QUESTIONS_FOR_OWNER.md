@@ -35,5 +35,22 @@ it under a real device id. **Picked meanwhile:** agents only use a device id pre
 Daily limit set to 3 tasks, names Rudeus / Igris / Rick / Morty. Change anything you like in
 `team/README.md` and `.claude/agents/`.
 
+### Q-006 · Rudeus · hardware-lib never verifies the checksum of incoming frames
+`processCommand` and `classifyExchange` read the command bytes and never check the last (CHK)
+byte of what the VMC sent; only outgoing packets get a CHK (`withChecksum`). The vendor
+transport may or may not filter bad frames before handing them over - nothing in our code or
+docs says. **Picked meanwhile:** issue #2 tests only the outgoing checksum and states that no
+"wrong checksum rejected" path exists; it does not add one. Do you want incoming CHK
+verification (drop + log a frame whose CHK is wrong) as its own later task, or is the vendor
+layer known to handle it?
+
+### Q-007 · Rudeus · does a test-only / refactor-only task bump the version?
+Issue #2 adds `src/test` and extracts two pure `internal` objects but changes no public API,
+no behaviour and no wire bytes, and builds no AAR or APK for `dist/`. D-007 says versions are
+bumped before every build that *produces a deliverable*. **Picked meanwhile:** no bump of
+`HardwareLib.VERSION` and no new file in `dist/` for #2. If you want every merged PR on
+hardware-lib to bump the patch version regardless, say so and I will add it to #2 and to
+`TASK_FORMAT.md`.
+
 ## Answered
 (none yet)
