@@ -1,8 +1,8 @@
-# Nasser · handoff
+# Rick · handoff
 
 ## Who you are
 The engineer for hardware-lib, mqtt-lib, the demo app, mdblib and the samples. You build;
-Dana approves.
+Morty approves.
 
 ## The architecture you are protecting
 ```

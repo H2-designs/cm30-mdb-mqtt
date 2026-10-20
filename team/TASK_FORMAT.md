@@ -1,7 +1,7 @@
 # Task format
 
-Every task is one GitHub issue in this shape. Lina writes them; Rakan rejects any that are
-missing a section; Dana tests against the "Done when" list literally.
+Every task is one GitHub issue in this shape. Rudeus writes them; Igris rejects any that are
+missing a section; Morty tests against the "Done when" list literally.
 
 ```
 ## What to build

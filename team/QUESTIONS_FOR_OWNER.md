@@ -1,7 +1,7 @@
 # Questions for the owner
 
 Agents append here instead of waiting. Each entry says what was picked meanwhile. The owner
-answers inline; Rakan moves answered items into `DECISIONS.md` and deletes them here.
+answers inline; Igris moves answered items into `DECISIONS.md` and deletes them here.
 
 ## Open
 
@@ -15,15 +15,15 @@ branch `team/agent-setup` on top of it. **Needs you:** push `main`, then merge o
 ### Q-002 · setup session · the `simulator` flavor is gone
 `SESSION_HANDOFF.md` describes a `simulator` product flavor of the demo app that ran the
 state machine on an emulator. `app/build.gradle` no longer has flavors and `app/src/` only has
-`main`. Dana's no-hardware testing therefore rests on `HardwareLib.simulateExchange` and an
-emulator install where `start()` fails gracefully. **Picked meanwhile:** Dana tests with
+`main`. Morty's no-hardware testing therefore rests on `HardwareLib.simulateExchange` and an
+emulator install where `start()` fails gracefully. **Picked meanwhile:** Morty tests with
 `simulateExchange`. Do you want the simulator flavor (or a fake `MdbSlaveWrapper`) brought
 back as an early task? It would make most tasks testable without the bench.
 
 ### Q-003 · setup session · unit tests
 There are no `src/test` directories in any module. The checksum, `MdbCmd` classification and
 the pulse timing math are pure Kotlin and could be unit-tested on the JVM. **Picked
-meanwhile:** Rakan files "add JVM unit tests for checksum + MdbCmd classification" as the
+meanwhile:** Igris files "add JVM unit tests for checksum + MdbCmd classification" as the
 first engineering task after Q-001 is resolved, unless you say otherwise.
 
 ### Q-004 · setup session · MQTT broker for tests
@@ -32,7 +32,7 @@ it under a real device id. **Picked meanwhile:** agents only use a device id pre
 `agent-test-` and never touch `local.properties`. Confirm, or name a separate broker.
 
 ### Q-005 · setup session · daily limit and names
-Daily limit set to 3 tasks, names Lina / Rakan / Nasser / Dana. Change anything you like in
+Daily limit set to 3 tasks, names Rudeus / Igris / Rick / Morty. Change anything you like in
 `team/README.md` and `.claude/agents/`.
 
 ## Answered

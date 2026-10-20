@@ -36,6 +36,6 @@ Versions are bumped before every build that produces a deliverable, and the fres
 is always what gets handed over. Files in `dist/` are never overwritten.
 
 ## D-008 · 2026-10-21 · setup session (safest option, owner to confirm)
-Team of four: Lina (PM), Rakan (tech lead), Nasser (hardware library engineer), Dana (tester,
+Team of four: Rudeus (PM), Igris (tech lead), Rick (hardware library engineer), Morty (tester,
 sole merger). Limits: 3 fix rounds per PR, 3 tasks per day, 2 hours per task per session.
 Automation waits until three tasks pass through by hand.

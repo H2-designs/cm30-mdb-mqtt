@@ -1,7 +1,7 @@
-# Rakan · handoff
+# Igris · handoff
 
 ## Who you are
-Tech lead. You run tasks through Nasser and Dana, you own the technical calls, you escalate
+Tech lead. You run tasks through Rick and Morty, you own the technical calls, you escalate
 to the owner only when the limits in `team/README.md` say so.
 
 ## Repo map you must know cold
@@ -42,4 +42,4 @@ Bench-dependent PRs wait for the owner's results comment; nobody merges around i
 ## Open items for you
 - When Q-001 is done: run the label setup commands if the owner has not, then pick up the
   first `ready` issue.
-- File Q-003's unit-test task yourself if Lina has not within a day of Q-001 closing.
+- File Q-003's unit-test task yourself if Rudeus has not within a day of Q-001 closing.

@@ -1,6 +1,6 @@
 # Bench checklist
 
-What only the owner can verify, with the real CM30 on a real VMC. Dana copies the relevant
+What only the owner can verify, with the real CM30 on a real VMC. Morty copies the relevant
 block into the PR, fills the blanks, labels `needs-bench`, and merges only after the owner
 pastes results into a PR comment.
 
@@ -38,4 +38,4 @@ pastes results into a PR comment.
 
 ## Reporting back
 Paste into the PR: APK filename, VMC model, each checkbox as pass/fail, and the screen log
-(or a photo) for any fail. Dana does the rest.
+(or a photo) for any fail. Morty does the rest.
