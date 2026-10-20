@@ -5,12 +5,12 @@ answers inline; Rakan moves answered items into `DECISIONS.md` and deletes them 
 
 ## Open
 
-### Q-001 · setup session · uncommitted work on `main`
-`main` has one commit, and the working tree holds the whole mdb-lib → hardware-lib rename,
-the new `pulse-sample` and `rs232-sample` modules, `MdbMqttBridge.kt`, and newer `dist/`
-artifacts, all uncommitted. The team cannot branch from a clean `main` until this is
-committed and pushed. **Picked meanwhile:** nothing, this needs you. Suggested: one commit
-"hardware-lib 8.2.1, mqtt-lib 2.7.1, samples" on `main`, then push.
+### Q-001 · setup session · library work on `main` is committed locally, not pushed
+The mdb-lib → hardware-lib rename, the new `pulse-sample` and `rs232-sample` modules,
+`MdbMqttBridge.kt` and the newer `dist/` artifacts are now one local commit on `main`
+(`142d11b`, 2026-10-21). `origin/main` does not have it yet, and the team setup sits on
+branch `team/agent-setup` on top of it. **Needs you:** push `main`, then merge or PR
+`team/agent-setup`. Until then agents must not start tasks.
 
 ### Q-002 · setup session · the `simulator` flavor is gone
 `SESSION_HANDOFF.md` describes a `simulator` product flavor of the demo app that ran the
