@@ -10,6 +10,9 @@ android {
     defaultConfig {
         minSdkVersion 30
         targetSdkVersion 30
+        // Embedded in the AAR: R8 keep rules auto-applied to ANY consuming app (the reflective
+        // attach bridge must survive minification with no app-side proguard edits).
+        consumerProguardFiles 'consumer-rules.pro'
     }
 
     buildTypes {

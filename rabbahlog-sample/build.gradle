@@ -11,9 +11,19 @@ android {
         applicationId "com.rabbah.logsample"
         minSdkVersion 30
         targetSdkVersion 30
-        versionCode 1
-        versionName "1.0"
+        versionCode 5
+        versionName "1.4"
+
+        // Broker defaults for the on-screen fields, from local.properties (never committed).
+        def lp = new Properties()
+        def lpFile = rootProject.file('local.properties')
+        if (lpFile.exists()) lpFile.withInputStream { lp.load(it) }
+        buildConfigField "String", "MQTT_HOST", "\"${lp.getProperty('mqttHost', 'mosquitto')}\""
+        buildConfigField "String", "MQTT_PORT", "\"${lp.getProperty('mqttPort', '1883')}\""
+        buildConfigField "String", "MQTT_USERNAME", "\"${lp.getProperty('mqttUsername', 'rabbah')}\""
+        buildConfigField "String", "MQTT_PASSWORD", "\"${lp.getProperty('mqttPassword', '')}\""
     }
+    buildFeatures { buildConfig true }
 
     buildTypes {
         release {

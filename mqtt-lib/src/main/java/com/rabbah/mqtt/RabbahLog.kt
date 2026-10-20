@@ -9,7 +9,7 @@ import org.json.JSONObject
  * Every call becomes a compact log item — the exact envelope of the production Rabbah Log
  * Codebook, single-letter keys, every value a string, params positional:
  *
- *   RABBAH_LOG:{"t":"1787743651002","s":"MDB","m":"13","a":"vending-app","v":"2.13.4",
+ *   RABBAH_LOG:{"t":"1787743651002","s":"MDB","m":"121","a":"vending-app","v":"2.13.4",
  *               "k":"i","i":"7c1f2a9b","d":1,"p":["13 00 01 F4 00 03","ACK","500","3"]}
  *
  * and is pushed onto [MqttLib]'s bounded outbound queue: never blocks, never does I/O on the
@@ -55,18 +55,21 @@ object RabbahLog {
         }
     }
 
-    /** Once at startup — names the emitter ("a") and its version ("v") on every item after. */
+    /** Once at startup — names the emitter ("a") and its version ("v") on every item after.
+     * Returns true (always succeeds). */
     @JvmStatic
     @JvmOverloads
-    fun init(appName: String, appVersion: String = "") {
+    fun init(appName: String, appVersion: String = ""): Boolean {
         this.appName = appName
         this.appVersion = appVersion
+        return true
     }
 
     /**
      * THE log function. Each parameter maps to one key of the JSON envelope:
      * [event] -> s + m, [params] -> p, [kind] -> k, [sessionId] -> i, [instant] -> d;
      * t, a and v are stamped automatically.
+     * Returns true when the item was queued; false when MQTT was never initialized (no-op).
      */
     @JvmStatic
     @JvmOverloads
@@ -76,9 +79,28 @@ object RabbahLog {
         kind: Kind = event.defaultKind,
         sessionId: String? = this.sessionId,
         instant: Boolean = false
-    ) {
-        MqttLib.enqueue(LOG_TAG + makeLogJson(event, params, kind, sessionId, instant))
+    ): Boolean {
+        // 2.7.1: two publishers of the same exchange (e.g. an app bridge AND attachRabbahMqtt, or a listener
+        // registered twice) collapse to ONE wire item - an item identical to the previous one in everything
+        // but its timestamp, arriving within DEDUPE_WINDOW_MS, is dropped and counted.
+        val key = event.schemaCode + "|" + sessionId + "|" + params.joinToString("\u0001")
+        val now = System.currentTimeMillis()
+        synchronized(dedupeLock) {
+            if (key == lastKey && now - lastAt < DEDUPE_WINDOW_MS) { lastAt = now; dedupedItems++; return false }
+            lastKey = key; lastAt = now
+        }
+        return MqttLib.enqueue(LOG_TAG + makeLogJson(event, params, kind, sessionId, instant))
     }
+
+    private const val DEDUPE_WINDOW_MS = 30L
+    private val dedupeLock = Any()
+    private var lastKey: String? = null
+    private var lastAt: Long = 0L
+    /** Items dropped by the duplicate guard since app start - a rising counter means two publishers are wired. */
+    @JvmStatic
+    @Volatile
+    var dedupedItems: Long = 0L
+        private set
 
     /** Short form so a call site stays one line: log(event, "rx bytes", "ACK", "500", "3"). */
     @JvmStatic
@@ -87,6 +109,20 @@ object RabbahLog {
     /** Free text from anywhere in the app — schema INFO, code 0. */
     @JvmStatic
     fun raw(message: String) = log(InfoLogEvent.INFO_RAW, listOf(message))
+
+    /** One RS232 codebook event by NAME — the shape HardwareLib.addRs232EventListener emits,
+     * so a bridge (or HardwareLib.attachRabbahMqtt via reflection) forwards with one call.
+     * An unknown name (hardware-lib newer than this mqtt-lib) ships as free text instead of
+     * being dropped. */
+    @JvmStatic
+    fun rs232(eventName: String, params: List<String>): Boolean {
+        val event = try {
+            Rs232LogEvent.valueOf(eventName)
+        } catch (_: IllegalArgumentException) {
+            return raw("RS232 $eventName ${params.joinToString(" ")}")
+        }
+        return log(event, params)
+    }
 
     /** Free text, shipped as an error. */
     @JvmStatic

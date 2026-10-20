@@ -78,14 +78,14 @@ class MainActivity : Activity() {
 
         // Broker settings — prefilled with the server values, editable so the docker-internal
         // hostname ("mosquitto") can be replaced by the server's public IP/domain on the phone.
-        hostIn = field("broker host (use your server's public IP)", prefs.getString("host", "mosquitto")!!)
+        hostIn = field("broker host (use your server's public IP)", prefs.getString("host", BuildConfig.MQTT_HOST)!!)
         portIn = field("port", prefs.getInt("port", 1883).toString()).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
         }
         // Password is deliberately NOT hardcoded (this file lives in a git repo) — type it once
         // and it persists in SharedPreferences on the device.
-        userIn = field("username", prefs.getString("user", "rabbah")!!)
-        passIn = field("password (type once — remembered)", prefs.getString("pass", "")!!)
+        userIn = field("username", prefs.getString("user", BuildConfig.MQTT_USERNAME)!!)
+        passIn = field("password (type once — remembered)", prefs.getString("pass", BuildConfig.MQTT_PASSWORD)!!)
         prefixIn = field("topic prefix", prefs.getString("prefix", "cm30-mdb/hamdan-rabbah")!!)
 
         root.addView(row(hostIn to 3f, portIn to 1f))

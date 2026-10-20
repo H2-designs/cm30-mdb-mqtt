@@ -13,11 +13,39 @@ android {
         applicationId "com.ciontek.mdbslave2"
         minSdkVersion 30
         targetSdkVersion 30
-        // 2.x = the library split: all MDB + MQTT logic now lives in :mdb-lib and :mqtt-lib,
-        // and this app is just the thin reference integration of the two AARs.
-        versionCode 52
-        versionName "2.13.4"
+        // 2.x = the library split: MDB protocol logic lives in :hardware-lib (no MQTT inside),
+        // transport lives in :mqtt-lib, and this app is the thin bridge between the two AARs.
+        versionCode 104
+        versionName "2.17.0"
+
+        // Broker settings come from local.properties (machine-local, never committed):
+        //   mqttHost=mosquitto
+        //   mqttPort=1883
+        //   mqttUsername=rabbah
+        //   mqttPassword=...
+        def lp = new Properties()
+        def lpFile = rootProject.file('local.properties')
+        if (lpFile.exists()) lpFile.withInputStream { lp.load(it) }
+        buildConfigField "String", "MQTT_HOST", "\"${lp.getProperty('mqttHost', 'mosquitto')}\""
+        buildConfigField "int",    "MQTT_PORT", "${lp.getProperty('mqttPort', '1883')}"
+        buildConfigField "String", "MQTT_USERNAME", "\"${lp.getProperty('mqttUsername', 'rabbah')}\""
+        buildConfigField "String", "MQTT_PASSWORD", "\"${lp.getProperty('mqttPassword', '')}\""
     }
+    buildFeatures {
+        buildConfig true
+    }
+
+    // Emulator-only build: `gradlew :app:assembleDebug -PnoNativeLibs` strips the armeabi-v7a
+    // CM30 natives so the APK installs on x86_64 images (the engine then reports "hardware
+    // unavailable" instead of opening the port). Never used for real-device builds.
+    if (project.hasProperty('noNativeLibs')) {
+        packagingOptions {
+            jniLibs {
+                excludes += ['**/*.so']
+            }
+        }
+    }
+
 
     buildTypes {
         release {
@@ -35,7 +63,7 @@ android {
 }
 
 dependencies {
-    implementation project(':mdb-lib')
+    implementation project(':hardware-lib')
     implementation project(':mqtt-lib')
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'com.google.android.material:material:1.1.0'

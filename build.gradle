@@ -17,10 +17,10 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // The CM30 vendor .aar lives inside :mdb-lib; declared here so every consuming module
-        // (the app resolving :mdb-lib's runtime dependencies transitively) can find it too.
+        // The CM30 vendor .aar lives inside :hardware-lib; declared here so every consuming
+        // module (the app resolving :hardware-lib's runtime dependencies transitively) can find it.
         flatDir {
-            dirs "$rootDir/mdb-lib/libs"
+            dirs "$rootDir/hardware-lib/libs"
         }
     }
 }

@@ -41,7 +41,14 @@ interface RabbahLogEvent {
  *   p[1] = tx  — what we replied (the engine's reply name: ACK, JUST RESET, ...)
  * so what we received and what we answered can never be split across two log lines.
  *
- * APPEND-ONLY: add new events at the bottom with the next code. Never insert, never renumber.
+ * CODES 110-136 (since mqtt-lib 2.4.0): the wire codes are UNIFIED with the MdbCmd exchange
+ * codes in hardware-lib - one code space for "which command" and "which log line", the same
+ * scheme RS232 (137-143) has always used. Historical builds (mqtt-lib <= 2.3.0) emitted 0-26
+ * for the same events in the same order; the codebook a device serves always matches what it
+ * emits, so codebook-driven decoders never notice the change.
+ *
+ * APPEND-ONLY: add new events at the bottom with the next code (144+, after RS232's 137-143).
+ * Never insert, never renumber.
  */
 enum class MdbLogEvent(
     override val messageCode: Int,
@@ -49,35 +56,69 @@ enum class MdbLogEvent(
     override val paramCount: Int,
     override val defaultKind: RabbahLog.Kind = RabbahLog.Kind.INFO
 ) : RabbahLogEvent {
-    MDB_EXCHANGE(0, "EXCHANGE rx={0} tx={1}", 2),
-    MDB_OTHER_PERIPHERAL(1, "OTHER PERIPHERAL rx={0} tx={1}", 2, RabbahLog.Kind.DEBUG),
-    MDB_UNHANDLED(2, "UNHANDLED rx={0} tx={1}", 2, RabbahLog.Kind.ERROR),
-    MDB_RESET(3, "RESET rx={0} tx={1}", 2),
-    MDB_SETUP_CONFIG(4, "SETUP CONFIG rx={0} tx={1} level={2}", 3),
-    MDB_SETUP_PRICES(5, "SETUP MAX/MIN PRICES rx={0} tx={1}", 2),
-    MDB_POLL(6, "POLL rx={0} tx={1}", 2, RabbahLog.Kind.DEBUG),
-    MDB_POLL_JUST_RESET(7, "POLL (JUST RESET) rx={0} tx={1}", 2),
-    MDB_POLL_SESSION_BEGIN(8, "POLL (SESSION BEGIN) rx={0} tx={1}", 2),
-    MDB_POLL_END_SESSION(9, "POLL (END SESSION) rx={0} tx={1}", 2),
-    MDB_POLL_VEND_APPROVED(10, "POLL (VEND APPROVED) rx={0} tx={1}", 2),
-    MDB_POLL_SESSION_CANCEL(11, "POLL (SESSION CANCEL REQUEST) rx={0} tx={1}", 2),
-    MDB_POLL_VEND_DENIED(12, "POLL (VEND DENIED) rx={0} tx={1}", 2),
-    MDB_VEND_REQUEST(13, "VEND REQUEST rx={0} tx={1} price={2} item={3}", 4),
-    MDB_VEND_CANCEL(14, "VEND CANCEL rx={0} tx={1}", 2),
-    MDB_VEND_SUCCESS(15, "VEND SUCCESS rx={0} tx={1} item={2}", 3),
-    MDB_VEND_FAILURE(16, "VEND FAILURE rx={0} tx={1}", 2, RabbahLog.Kind.ERROR),
-    MDB_SESSION_COMPLETE(17, "SESSION COMPLETE rx={0} tx={1}", 2),
-    MDB_CASH_SALE(18, "CASH SALE rx={0} tx={1} price={2} item={3}", 4),
-    MDB_READER_DISABLE(19, "READER DISABLE rx={0} tx={1}", 2),
-    MDB_READER_ENABLE(20, "READER ENABLE rx={0} tx={1}", 2),
-    MDB_READER_CANCEL(21, "READER CANCEL rx={0} tx={1}", 2),
-    MDB_REVALUE_REQUEST(22, "REVALUE REQUEST rx={0} tx={1}", 2),
-    MDB_REVALUE_LIMIT_REQUEST(23, "REVALUE LIMIT REQUEST rx={0} tx={1}", 2),
-    MDB_EXPANSION_REQUEST_ID(24, "EXPANSION REQUEST ID rx={0} tx={1}", 2),
-    MDB_EXPANSION_ENABLE_OPTIONS(25, "EXPANSION ENABLE OPTIONS rx={0} tx={1}", 2),
-    MDB_EXPANSION_OTHER(26, "EXPANSION rx={0} tx={1}", 2);
+    MDB_EXCHANGE(110, "EXCHANGE rx={0} tx={1}", 2),
+    MDB_OTHER_PERIPHERAL(135, "OTHER PERIPHERAL rx={0} tx={1}", 2, RabbahLog.Kind.DEBUG),
+    MDB_UNHANDLED(136, "UNHANDLED rx={0} tx={1}", 2, RabbahLog.Kind.ERROR),
+    MDB_RESET(111, "RESET rx={0} tx={1}", 2),
+    MDB_SETUP_CONFIG(113, "SETUP CONFIG rx={0} tx={1} level={2}", 3),
+    MDB_SETUP_PRICES(115, "SETUP MAX/MIN PRICES rx={0} tx={1}", 2),
+    MDB_POLL(133, "POLL rx={0} tx={1}", 2, RabbahLog.Kind.DEBUG),
+    MDB_POLL_JUST_RESET(112, "POLL (JUST RESET) rx={0} tx={1}", 2),
+    MDB_POLL_SESSION_BEGIN(120, "POLL (SESSION BEGIN) rx={0} tx={1}", 2),
+    MDB_POLL_END_SESSION(127, "POLL (END SESSION) rx={0} tx={1}", 2),
+    MDB_POLL_VEND_APPROVED(122, "POLL (VEND APPROVED) rx={0} tx={1}", 2),
+    MDB_POLL_SESSION_CANCEL(129, "POLL (SESSION CANCEL REQUEST) rx={0} tx={1}", 2),
+    MDB_POLL_VEND_DENIED(123, "POLL (VEND DENIED) rx={0} tx={1}", 2),
+    MDB_VEND_REQUEST(121, "VEND REQUEST rx={0} tx={1} price={2} item={3}", 4),
+    MDB_VEND_CANCEL(128, "VEND CANCEL rx={0} tx={1}", 2),
+    MDB_VEND_SUCCESS(124, "VEND SUCCESS rx={0} tx={1} item={2}", 3),
+    MDB_VEND_FAILURE(125, "VEND FAILURE rx={0} tx={1}", 2, RabbahLog.Kind.ERROR),
+    MDB_SESSION_COMPLETE(126, "SESSION COMPLETE rx={0} tx={1}", 2),
+    MDB_CASH_SALE(132, "CASH SALE rx={0} tx={1} price={2} item={3}", 4),
+    MDB_READER_DISABLE(118, "READER DISABLE rx={0} tx={1}", 2),
+    MDB_READER_ENABLE(117, "READER ENABLE rx={0} tx={1}", 2),
+    MDB_READER_CANCEL(119, "READER CANCEL rx={0} tx={1}", 2),
+    MDB_REVALUE_REQUEST(130, "REVALUE REQUEST rx={0} tx={1}", 2),
+    MDB_REVALUE_LIMIT_REQUEST(131, "REVALUE LIMIT REQUEST rx={0} tx={1}", 2),
+    MDB_EXPANSION_REQUEST_ID(114, "EXPANSION REQUEST ID rx={0} tx={1}", 2),
+    MDB_EXPANSION_ENABLE_OPTIONS(116, "EXPANSION ENABLE OPTIONS rx={0} tx={1}", 2),
+    MDB_EXPANSION_OTHER(134, "EXPANSION rx={0} tx={1}", 2);
 
     override val schemaCode: String get() = "MDB"
+    override val eventName: String get() = name
+}
+
+/**
+ * The RS232 codebook (schema "RS232") — one coded event per serial exchange, so the backend
+ * and dashboard parse RS232 traffic exactly like MDB instead of scraping "[rs232] ..." text.
+ * hardware-lib emits these through HardwareLib.addRs232EventListener (names map 1:1).
+ *
+ * APPEND-ONLY: add new events at the bottom with the next code. Never insert, never renumber.
+ */
+enum class Rs232LogEvent(
+    override val messageCode: Int,
+    override val template: String,
+    override val paramCount: Int,
+    override val defaultKind: RabbahLog.Kind = RabbahLog.Kind.INFO
+) : RabbahLogEvent {
+    // Codes continue AFTER the MDB CMD schema (110-136, the numbering the whole project
+    // thinks in), so an RS232 code can never be confused with an MDB one anywhere - not in
+    // the log codebook, not next to MdbCmd exchange codes.
+    /** p = [ruleName, rxHex, txHex or "-", price or "-1"] */
+    RS232_RX_MATCHED(137, "RS232 {0} rx={1} tx={2} price={3}", 4),
+    /** p = [rxHex] */
+    RS232_RX_UNMATCHED(138, "RS232 UNMATCHED rx={0}", 1, RabbahLog.Kind.ERROR),
+    /** p = [rxHex, expectedCrcHex] */
+    RS232_CRC_DISCARDED(139, "RS232 CRC FAIL rx={0} expected={1} - discarded", 2, RabbahLog.Kind.ERROR),
+    /** p = [txHex] — manual sendHex / sendXor* writes (rule auto-replies ride RX_MATCHED) */
+    RS232_TX(140, "RS232 TX {0}", 1),
+    /** p = [portParams e.g. "baud=9600 8N1", ruleCount] */
+    RS232_PORT_OPEN(141, "RS232 port open {0}, {1} rule(s) active", 2),
+    RS232_PORT_CLOSED(142, "RS232 port closed", 0),
+    /** p = [ruleCount] */
+    RS232_RULES_LOADED(143, "RS232 {0} rule(s) loaded", 1);
+
+    override val schemaCode: String get() = "RS232"
     override val eventName: String get() = name
 }
 
@@ -107,6 +148,7 @@ object RabbahCodebook {
     /** All schemas this build can emit, keyed by schemaCode. */
     val schemas: Map<String, List<RabbahLogEvent>> = mapOf(
         "MDB" to MdbLogEvent.values().toList(),
+        "RS232" to Rs232LogEvent.values().toList(),
         "INFO" to InfoLogEvent.values().toList()
     )
 

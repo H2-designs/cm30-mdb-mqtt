@@ -1,17 +1,19 @@
 plugins {
-    id 'com.android.library'
+    id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
 
 android {
-    namespace 'com.rabbah.mdb'
+    namespace 'com.rabbah.pulsesample'
     compileSdkVersion 36
 
     defaultConfig {
+        applicationId "com.rabbah.pulsesample"
         minSdkVersion 30
         targetSdkVersion 30
+        versionCode 6
+        versionName "1.5"
     }
-
     buildTypes {
         release {
             minifyEnabled false
@@ -26,13 +28,6 @@ android {
     }
 }
 
-repositories {
-    flatDir {
-        dirs 'libs'
-    }
-}
-
 dependencies {
-    api project(':mqtt-lib')
-    implementation(name: 'CM30-HardwareLibrary-1.0.9', ext: 'aar')
+    implementation project(':hardware-lib')
 }
